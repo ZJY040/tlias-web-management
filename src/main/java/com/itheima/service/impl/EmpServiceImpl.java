@@ -27,6 +27,16 @@ public class EmpServiceImpl implements EmpService {
 
 
     @Override
+    public LoginInfo login(Emp emp) {
+        Emp e = empMapper.selectByUsernameAndPassword(emp);
+        if (e != null) {
+            log.info("登陆成功,员工信息:{}",e);
+            return new LoginInfo(e.getId(), e.getUsername(), e.getName(),"");
+        }
+        return null;
+    }
+
+    @Override
     public List<Emp> findAll() {
         log.info("查询员工信息");
         return empMapper.findAll();
