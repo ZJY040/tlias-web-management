@@ -141,8 +141,6 @@ mvn spring-boot:run
 
 ## 难点复盘
 
-<!-- 用「问题 → 方案 → 效果」三段式记录，面试时讲的就是这些 -->
-
 ### jjwt 0.9.1 在 JDK 17 下解析令牌直接崩
 
 **问题**：生成 token 正常，一调用 `parseJWT` 就报 `NoClassDefFoundError: javax.xml.bind.DatatypeConverter`。
@@ -151,14 +149,6 @@ mvn spring-boot:run
 
 **效果**：顺带适配了 0.12 的新 API（`Jwts.builder().claims().signWith()` / `Jwts.parser().verifyWith().parseSignedClaims()`），并把密钥从 7 字节换成 40 字节——新版本拒绝弱密钥，HS256 要求密钥 ≥ 32 字节。
 
-### 过滤器设置 401 后没 return，鉴权形同虚设
-
-**问题**：`TokenFilter` 里 catch 到令牌解析异常后只调用了 `setStatus(401)`，没有 `return`，代码继续往下执行 `chain.doFilter`，请求照样打进 Controller。
-
-**方案**：令牌为空的分支和 catch 块都补上 `return`。
-
-**效果**：无效令牌才真正被拦截。这个 bug 很隐蔽——不报错、不崩溃，只是"鉴权根本没生效"，测接口时很容易忽略。
-
 ### Debug 卡在 Jackson2AutoConfiguration，Run 却完全正常
 
 **问题**：以 Debug 方式启动必停在 `Jackson2AutoConfiguration` 报 `FileNotFoundException`，Reload Maven、Rebuild Project、Invalidate Caches 三种办法全部无效，且整个本地仓库里搜不到这个类。
@@ -166,15 +156,3 @@ mvn spring-boot:run
 **方案**：翻 `.idea/workspace.xml` 才发现挂着一个启用的 `java.lang.IllegalStateException` **异常断点**。Spring Boot 启动时会尝试加载大量自动配置候选类，找不到就抛异常、然后被框架内部 catch 掉——这是正常流程。但异常断点不管你有没有 catch，命中就暂停，IDEA 就把栈帧定位到那个"找不到的类名"上，看起来像崩了。
 
 **效果**：删掉断点后立即正常。**经验：Debug 报错、Run 正常，第一嫌疑永远是异常断点（`Ctrl+Shift+F8`），别去查依赖。**
-
-### 差点把阿里云密钥推上公开仓库
-
-**问题**：`application.yml` 里明文写着 OSS 的 `access-key-secret`，已经进了 git 暂存区。
-
-**方案**：`git rm --cached` 移出版本控制 → 写进 `.gitignore` → `git commit --amend` 重写历史；另存一份脱敏的 `application.yml.example` 供参考。
-
-**效果**：本地仓库与远端均无密钥。注意：如果密钥真的被推上去过，**必须在阿里云控制台吊销并重新生成**，光删代码没用——GitHub 上被爬走的密钥几分钟内就会被拿去挖矿。
-
----
-
-> 配置文件 `application.yml` 已加入 `.gitignore`，仓库中只保留脱敏的 `application.yml.example`，避免密钥泄露。
